@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Generate synthesized fart sounds with customizable parameters">
+  <title>Fart Sound Generator</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Tone.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <h1>💨 Fart Sound Generator</h1>
+      <p class="subtitle">Create the perfect toot with science!</p>
+    </header>
+
+    <main>
+      <!-- Main Action Button -->
+      <button id="generateBtn" class="generate-btn" aria-label="Generate fart sound">
+        <span class="btn-text">Generate Fart</span>
+        <span class="btn-playing" style="display: none;">Playing...</span>
+      </button>
+
+      <!-- Control Panel -->
+      <div class="control-panel">
+        <h2>Sound Parameters</h2>
+
+        <!-- Length Slider -->
+        <div class="slider-container">
+          <div class="slider-header">
+            <label for="lengthSlider">Length</label>
+            <span class="slider-value" id="lengthValue">1.0s</span>
+          </div>
+          <input type="range" id="lengthSlider" min="0.1" max="3.0" step="0.1" value="1.0"
+            aria-label="Sound length in seconds">
+        </div>
+
+        <!-- Force Slider -->
+        <div class="slider-container">
+          <div class="slider-header">
+            <label for="forceSlider">Force</label>
+            <span class="slider-value" id="forceValue">5</span>
+          </div>
+          <input type="range" id="forceSlider" min="1" max="10" step="1" value="5"
+            aria-label="Sound force and intensity">
+        </div>
+
+        <!-- Wetness Slider -->
+        <div class="slider-container">
+          <div class="slider-header">
+            <label for="wetnessSlider">Wetness</label>
+            <span class="slider-value" id="wetnessValue">3</span>
+          </div>
+          <input type="range" id="wetnessSlider" min="0" max="10" step="1" value="3"
+            aria-label="Sound wetness and texture">
+        </div>
+
+        <!-- Loudness Slider -->
+        <div class="slider-container">
+          <div class="slider-header">
+            <label for="loudnessSlider">Loudness</label>
+            <span class="slider-value" id="loudnessValue">70%</span>
+          </div>
+          <input type="range" id="loudnessSlider" min="0" max="100" step="5" value="70"
+            aria-label="Sound loudness percentage">
+        </div>
+
+        <!-- Pitch Slider -->
+        <div class="slider-container">
+          <div class="slider-header">
+            <label for="pitchSlider">Pitch</label>
+            <span class="slider-value" id="pitchValue">150Hz</span>
+          </div>
+          <input type="range" id="pitchSlider" min="50" max="300" step="10" value="150"
+            aria-label="Sound pitch frequency in Hz">
+        </div>
+      </div>
+
+      <!-- Surprise Me Button -->
+      <button id="surpriseBtn" class="surprise-btn" aria-label="Randomize all parameters">
+        🎲 Surprise Me!
+      </button>
+
+      <!-- Info Footer -->
+      <div class="info">
+        <p>Powered by <a href="https://tonejs.github.io/" target="_blank" rel="noopener">Tone.js</a></p>
+      </div>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
