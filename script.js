@@ -24,6 +24,8 @@ const elements = {
   wetnessSlider: document.getElementById("wetnessSlider"),
   loudnessSlider: document.getElementById("loudnessSlider"),
   pitchSlider: document.getElementById("pitchSlider"),
+  squeezeSlider: document.getElementById("squeezeSlider"),
+  sizzleSlider: document.getElementById("sizzleSlider"),
 
   // Value Displays
   lengthValue: document.getElementById("lengthValue"),
@@ -31,6 +33,8 @@ const elements = {
   wetnessValue: document.getElementById("wetnessValue"),
   loudnessValue: document.getElementById("loudnessValue"),
   pitchValue: document.getElementById("pitchValue"),
+  squeezeValue: document.getElementById("squeezeValue"),
+  sizzleValue: document.getElementById("sizzleValue"),
 };
 
 // ====================================
@@ -51,6 +55,8 @@ function initializeSliders() {
   updateSliderDisplay("wetness", elements.wetnessSlider.value);
   updateSliderDisplay("loudness", elements.loudnessSlider.value);
   updateSliderDisplay("pitch", elements.pitchSlider.value);
+  updateSliderDisplay("squeeze", elements.squeezeSlider.value);
+  updateSliderDisplay("sizzle", elements.sizzleSlider.value);
 
   // Update slider backgrounds to show progress
   updateSliderBackground(elements.lengthSlider);
@@ -58,6 +64,8 @@ function initializeSliders() {
   updateSliderBackground(elements.wetnessSlider);
   updateSliderBackground(elements.loudnessSlider);
   updateSliderBackground(elements.pitchSlider);
+  updateSliderBackground(elements.squeezeSlider);
+  updateSliderBackground(elements.sizzleSlider);
 }
 
 // ====================================
@@ -95,6 +103,16 @@ function initializeEventListeners() {
     updateSliderDisplay("pitch", e.target.value);
     updateSliderBackground(e.target);
   });
+
+  elements.squeezeSlider.addEventListener("input", (e) => {
+    updateSliderDisplay("squeeze", e.target.value);
+    updateSliderBackground(e.target);
+  });
+
+  elements.sizzleSlider.addEventListener("input", (e) => {
+    updateSliderDisplay("sizzle", e.target.value);
+    updateSliderBackground(e.target);
+  });
 }
 
 // ====================================
@@ -118,6 +136,12 @@ function updateSliderDisplay(type, value) {
       break;
     case "pitch":
       elements.pitchValue.textContent = `${Math.round(numValue)}Hz`;
+      break;
+    case "squeeze":
+      elements.squeezeValue.textContent = Math.round(numValue);
+      break;
+    case "sizzle":
+      elements.sizzleValue.textContent = Math.round(numValue);
       break;
   }
 }
@@ -201,6 +225,31 @@ function pitchToFrequency(sliderValue) {
   return parseInt(sliderValue);
 }
 
+/**
+ * Map squeeze to pitch rise parameters
+ * Returns object with pitch multiplier for pitch rise effect
+ */
+function squeezeToRise(sliderValue) {
+  const squeeze = parseInt(sliderValue);
+  return {
+    pitchMultiplier: 1 + (squeeze * 0.3), // 1.0 to 4.0x pitch rise
+    riseAmount: squeeze * 50, // 0-500 Hz additional rise
+  };
+}
+
+/**
+ * Map sizzle to high frequency noise parameters
+ * Returns object with high-frequency noise characteristics
+ */
+function sizzleToNoise(sliderValue) {
+  const sizzle = parseInt(sliderValue);
+  return {
+    noiseAmplitude: sizzle * 0.02, // 0-0.2 noise level
+    filterFrequency: 2000 + (sizzle * 400), // 2000-6000 Hz highpass
+    noiseType: sizzle > 5 ? 'white' : 'pink', // white noise for higher sizzle
+  };
+}
+
 // ====================================
 // AUDIO ENGINE - TONE.JS
 // ====================================
@@ -270,8 +319,10 @@ function getCurrentParameters() {
   const wetness = wetnessToNoise(elements.wetnessSlider.value);
   const volume = loudnessToVolume(elements.loudnessSlider.value);
   const pitch = pitchToFrequency(elements.pitchSlider.value);
+  const squeeze = squeezeToRise(elements.squeezeSlider.value);
+  const sizzle = sizzleToNoise(elements.sizzleSlider.value);
 
-  return { length, force, wetness, volume, pitch };
+  return { length, force, wetness, volume, pitch, squeeze, sizzle };
 }
 
 /**
@@ -358,11 +409,33 @@ function createSoundComponents(params) {
     synths.push(noise);
   }
 
+  // 4. SIZZLE COMPONENT - High frequency noise
+  let sizzleNoise = null;
+  let sizzleFilter = null;
+
+  if (params.sizzle.noiseAmplitude > 0) {
+    // Create highpass filter for sizzle
+    sizzleFilter = new Tone.Filter({
+      type: "highpass",
+      frequency: params.sizzle.filterFrequency,
+      rolloff: -12,
+    }).connect(compressor);
+    synths.push(sizzleFilter);
+
+    // Create high-frequency noise source
+    sizzleNoise = new Tone.Noise({
+      type: params.sizzle.noiseType,
+      volume: -25 + params.sizzle.noiseAmplitude * 100,
+    }).connect(sizzleFilter);
+    synths.push(sizzleNoise);
+  }
+
   return {
     synths,
     baseSynth,
     fmSynth,
     noise,
+    sizzleNoise,
     filter,
   };
 }
@@ -371,13 +444,34 @@ function createSoundComponents(params) {
  * Play all sound components with proper timing
  */
 function playSoundComponents(components, params, startTime) {
-  const { baseSynth, fmSynth, noise } = components;
+  const { baseSynth, fmSynth, noise, sizzleNoise } = components;
 
-  // Play base tone
-  baseSynth.triggerAttackRelease(params.pitch, params.length, startTime);
+  // Calculate pitch rise if squeeze is active
+  const endPitch = params.pitch * params.squeeze.pitchMultiplier;
 
-  // Play FM synth (slightly lower pitch for richness)
-  fmSynth.triggerAttackRelease(params.pitch * 0.75, params.length, startTime);
+  // Play base tone with pitch automation for squeeze
+  if (params.squeeze.pitchMultiplier > 1) {
+    baseSynth.frequency.setValueAtTime(params.pitch, startTime);
+    baseSynth.frequency.exponentialRampToValueAtTime(
+      endPitch,
+      startTime + params.length
+    );
+    baseSynth.triggerAttackRelease(params.length, startTime);
+  } else {
+    baseSynth.triggerAttackRelease(params.pitch, params.length, startTime);
+  }
+
+  // Play FM synth (slightly lower pitch for richness) with squeeze
+  if (params.squeeze.pitchMultiplier > 1) {
+    fmSynth.frequency.setValueAtTime(params.pitch * 0.75, startTime);
+    fmSynth.frequency.exponentialRampToValueAtTime(
+      endPitch * 0.75,
+      startTime + params.length
+    );
+    fmSynth.triggerAttackRelease(params.length, startTime);
+  } else {
+    fmSynth.triggerAttackRelease(params.pitch * 0.75, params.length, startTime);
+  }
 
   // Play noise bursts for wetness
   if (noise && params.wetness.burstCount > 0) {
@@ -402,6 +496,24 @@ function playSoundComponents(components, params, startTime) {
     }
 
     noise.stop(startTime + params.length);
+  }
+
+  // Play sizzle noise if active
+  if (sizzleNoise && params.sizzle.noiseAmplitude > 0) {
+    sizzleNoise.start(startTime);
+    
+    // Add some variation to sizzle throughout the sound
+    const sizzleSteps = 5;
+    for (let i = 0; i < sizzleSteps; i++) {
+      const stepTime = startTime + (params.length / sizzleSteps) * i;
+      const variation = Math.random() * 6 - 3; // ±3dB variation
+      sizzleNoise.volume.setValueAtTime(
+        -25 + params.sizzle.noiseAmplitude * 100 + variation,
+        stepTime
+      );
+    }
+    
+    sizzleNoise.stop(startTime + params.length);
   }
 
   // Add subtle filter sweep for realism
@@ -451,6 +563,8 @@ function handleSurpriseMe() {
   const randomWetness = weightedRandomInt(0, 10, 2, 6);
   const randomLoudness = weightedRandomInt(0, 100, 50, 90);
   const randomPitch = weightedRandomInt(50, 300, 100, 200);
+  const randomSqueeze = weightedRandomInt(0, 10, 0, 5);
+  const randomSizzle = weightedRandomInt(0, 10, 0, 5);
 
   // Update sliders
   elements.lengthSlider.value = randomLength.toFixed(1);
@@ -458,6 +572,8 @@ function handleSurpriseMe() {
   elements.wetnessSlider.value = randomWetness;
   elements.loudnessSlider.value = randomLoudness;
   elements.pitchSlider.value = randomPitch;
+  elements.squeezeSlider.value = randomSqueeze;
+  elements.sizzleSlider.value = randomSizzle;
 
   // Update displays
   updateSliderDisplay("length", randomLength);
@@ -465,6 +581,8 @@ function handleSurpriseMe() {
   updateSliderDisplay("wetness", randomWetness);
   updateSliderDisplay("loudness", randomLoudness);
   updateSliderDisplay("pitch", randomPitch);
+  updateSliderDisplay("squeeze", randomSqueeze);
+  updateSliderDisplay("sizzle", randomSizzle);
 
   // Update backgrounds
   updateSliderBackground(elements.lengthSlider);
@@ -472,6 +590,8 @@ function handleSurpriseMe() {
   updateSliderBackground(elements.wetnessSlider);
   updateSliderBackground(elements.loudnessSlider);
   updateSliderBackground(elements.pitchSlider);
+  updateSliderBackground(elements.squeezeSlider);
+  updateSliderBackground(elements.sizzleSlider);
 
   // Automatically play the sound
   setTimeout(() => handleGenerate(), 300);

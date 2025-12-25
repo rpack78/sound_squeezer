@@ -78,6 +78,26 @@
           <input type="range" id="pitchSlider" min="50" max="300" step="10" value="150"
             aria-label="Sound pitch frequency in Hz">
         </div>
+
+        <!-- Squeeze Slider -->
+        <div class="slider-container">
+          <div class="slider-header">
+            <label for="squeezeSlider">Squeeze</label>
+            <span class="slider-value" id="squeezeValue">0</span>
+          </div>
+          <input type="range" id="squeezeSlider" min="0" max="10" step="1" value="0"
+            aria-label="Pitch rise over time">
+        </div>
+
+        <!-- Sizzle Slider -->
+        <div class="slider-container">
+          <div class="slider-header">
+            <label for="sizzleSlider">Sizzle</label>
+            <span class="slider-value" id="sizzleValue">0</span>
+          </div>
+          <input type="range" id="sizzleSlider" min="0" max="10" step="1" value="0"
+            aria-label="High frequency noise content">
+        </div>
       </div>
 
       <!-- Surprise Me Button -->
